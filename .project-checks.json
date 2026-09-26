@@ -1,0 +1,123 @@
+{
+  "version": 1,
+  "checks": [
+    {
+      "name": "nix-format",
+      "argv": [
+        "nix",
+        "fmt",
+        "--no-write-lock-file",
+        "--",
+        "--ci"
+      ],
+      "requires": [
+        "nix"
+      ],
+      "timeout_seconds": 120,
+      "profiles": [
+        "fast"
+      ]
+    },
+    {
+      "name": "statix",
+      "argv": [
+        "statix",
+        "check",
+        "."
+      ],
+      "requires": [
+        "statix"
+      ],
+      "timeout_seconds": 120,
+      "profiles": [
+        "fast"
+      ]
+    },
+    {
+      "name": "deadnix",
+      "argv": [
+        "deadnix",
+        "--fail",
+        "."
+      ],
+      "requires": [
+        "deadnix"
+      ],
+      "timeout_seconds": 120,
+      "profiles": [
+        "fast"
+      ]
+    },
+    {
+      "name": "cargo-fmt",
+      "argv": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "requires": [
+        "cargo"
+      ],
+      "timeout_seconds": 120,
+      "profiles": [
+        "fast"
+      ]
+    },
+    {
+      "name": "flake-check",
+      "argv": [
+        "nix",
+        "flake",
+        "check"
+      ],
+      "requires": [
+        "nix"
+      ],
+      "timeout_seconds": 900,
+      "profiles": [
+        "full"
+      ]
+    },
+    {
+      "name": "cargo-clippy",
+      "argv": [
+        "cargo",
+        "clippy",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "requires": [
+        "cargo"
+      ],
+      "timeout_seconds": 900,
+      "profiles": [
+        "full"
+      ]
+    },
+    {
+      "name": "cargo-test",
+      "argv": [
+        "cargo",
+        "test",
+        "--all-targets"
+      ],
+      "requires": [
+        "cargo"
+      ],
+      "timeout_seconds": 900,
+      "profiles": [
+        "fast"
+      ]
+    }
+  ],
+  "watch_ignore": [
+    ".direnv",
+    "result",
+    "result-*",
+    "target"
+  ]
+}

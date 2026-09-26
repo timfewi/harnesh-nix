@@ -1,0 +1,19 @@
+[package]
+name = "harnesh"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Agent-agnostic tmux cockpit for running and supervising coding agents side by side"
+license = "MIT"
+repository = "https://github.com/timfewi/harnesh-nix"
+publish = false
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4.6", features = ["derive", "env"] }
+ratatui = "0.30"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+lto = "thin"
