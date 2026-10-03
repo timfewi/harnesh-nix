@@ -32,6 +32,7 @@ pub struct SpawnRequest<'a> {
     pub name: Option<&'a str>,
     pub cwd: &'a Path,
     pub prompt: Option<&'a str>,
+    pub task: Option<&'a str>,
     pub worktree: bool,
 }
 
@@ -159,6 +160,9 @@ impl Ctx {
                 worktree: worktree.as_deref(),
             },
         )?;
+        if let Some(task) = request.task.or(request.prompt) {
+            self.tmux.set_task(&pane, task)?;
+        }
         Ok(Spawned {
             pane,
             name,
@@ -268,6 +272,7 @@ mod tests {
             exit_status: None,
             cwd: "/".to_owned(),
             command: "codex".to_owned(),
+            task: None,
         }
     }
 

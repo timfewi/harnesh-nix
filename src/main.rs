@@ -51,6 +51,9 @@ enum Cmd {
         /// Initial prompt, passed through the adapter's promptArgv.
         #[arg(long)]
         prompt: Option<String>,
+        /// Short task description for the dashboard (defaults to a prompt excerpt).
+        #[arg(long)]
+        task: Option<String>,
         /// Run the agent in a new git worktree next to the repository.
         #[arg(long)]
         worktree: bool,
@@ -75,10 +78,16 @@ enum Cmd {
         #[arg(long)]
         no_enter: bool,
     },
+    /// Set a pane task summary without sending input; empty text clears it.
+    Task { target: String, text: String },
     /// Send Ctrl-C to a pane.
     Interrupt { target: String },
     /// Kill a pane.
     Stop { target: String },
+    /// Select an agent or tool pane in the cockpit.
+    Focus { target: String },
+    /// Return to the dashboard pane from any cockpit window.
+    Home,
     /// Kill the whole cockpit session.
     Down,
     /// List the configured adapters.
@@ -138,6 +147,7 @@ fn run(cli: Cli) -> Result<()> {
             name,
             cwd: dir,
             prompt,
+            task,
             worktree,
         } => {
             let dir = match dir {
@@ -152,6 +162,7 @@ fn run(cli: Cli) -> Result<()> {
                 name: name.as_deref(),
                 cwd: &dir,
                 prompt: prompt.as_deref(),
+                task: task.as_deref(),
                 worktree,
             })?;
             println!("{}", serde_json::to_string(&spawned)?);
@@ -202,8 +213,11 @@ fn run(cli: Cli) -> Result<()> {
             let pane = ctx.resolve(&target)?;
             ctx.tmux.send(&pane.id, &text, !no_enter)
         }
+        Cmd::Task { target, text } => ctx.tmux.set_task(&ctx.resolve(&target)?.id, &text),
         Cmd::Interrupt { target } => ctx.tmux.interrupt(&ctx.resolve(&target)?.id),
         Cmd::Stop { target } => ctx.tmux.kill(&ctx.resolve(&target)?.id),
+        Cmd::Focus { target } => ctx.tmux.focus(&ctx.resolve(&target)?.id),
+        Cmd::Home => ctx.tmux.focus(&ctx.resolve("dash")?.id),
         Cmd::Down => ctx.tmux.kill_session(ctx.session()),
         Cmd::Adapters { json } => {
             if json {

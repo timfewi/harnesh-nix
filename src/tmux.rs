@@ -27,6 +27,7 @@ pub struct Pane {
     pub exit_status: Option<i32>,
     pub cwd: String,
     pub command: String,
+    pub task: Option<String>,
 }
 
 const PANE_FORMAT: &[&str] = &[
@@ -41,6 +42,7 @@ const PANE_FORMAT: &[&str] = &[
     "#{pane_dead_status}",
     "#{pane_current_path}",
     "#{pane_current_command}",
+    "#{@harnesh_task}",
 ];
 
 fn pane_format() -> String {
@@ -71,9 +73,25 @@ pub fn parse_panes(text: &str) -> Vec<Pane> {
                 exit_status: fields[8].parse().ok(),
                 cwd: fields[9].to_owned(),
                 command: fields[10].to_owned(),
+                task: non_empty(fields[11]),
             })
         })
         .collect()
+}
+
+/// Bounded, single-line task text, safe for the tmux metadata record format.
+/// This is an excerpt of the supplied description, not an inferred agent state.
+pub fn task_summary(text: &str) -> String {
+    let clean: String = text
+        .chars()
+        .map(|c| if c.is_control() { ' ' } else { c })
+        .collect();
+    let clean = clean.split_whitespace().collect::<Vec<_>>().join(" ");
+    if clean.chars().count() > 240 {
+        format!("{}…", clean.chars().take(239).collect::<String>())
+    } else {
+        clean
+    }
 }
 
 /// POSIX single-quote each argument so tmux's shell runs argv unchanged.
@@ -289,6 +307,18 @@ impl Tmux {
         Ok(id)
     }
 
+    pub fn set_task(&self, pane: &str, text: &str) -> Result<()> {
+        self.checked(&[
+            "set-option",
+            "-p",
+            "-t",
+            pane,
+            "@harnesh_task",
+            &task_summary(text),
+        ])?;
+        Ok(())
+    }
+
     pub fn capture(&self, pane: &str, lines: usize) -> Result<Vec<String>> {
         let start = format!("-{}", lines.max(1));
         let text = self.checked(&["capture-pane", "-p", "-J", "-t", pane, "-S", &start])?;
@@ -393,22 +423,38 @@ mod tests {
             "",
             "/repo",
             "codex",
+            "Fix login",
         ]
         .join(&sep);
         let dead = [
-            "%4", "tool", "nvim", "", "", "/wt", "control", "1", "2", "/repo", "nvim",
+            "%4", "tool", "nvim", "", "", "/wt", "control", "1", "2", "/repo", "nvim", "",
         ]
         .join(&sep);
-        let foreign = ["%5", "", "", "", "", "", "other", "0", "", "/", "zsh"].join(&sep);
+        let foreign = ["%5", "", "", "", "", "", "other", "0", "", "/", "zsh", ""].join(&sep);
         let panes = parse_panes(&format!("{agent}\n{dead}\n{foreign}\nbroken\n"));
         assert_eq!(panes.len(), 2);
         assert_eq!(panes[0].name, "fix");
+        assert_eq!(panes[0].task.as_deref(), Some("Fix login"));
+        assert_eq!(panes[1].task, None);
         assert_eq!(panes[0].started, Some(1_700_000_000));
         assert_eq!(panes[0].worktree, None);
         assert!(!panes[0].dead);
         assert!(panes[1].dead);
         assert_eq!(panes[1].exit_status, Some(2));
         assert_eq!(panes[1].worktree.as_deref(), Some("/wt"));
+    }
+
+    #[test]
+    fn task_excerpts_are_bounded_unicode_and_record_safe() {
+        assert_eq!(
+            task_summary("  Fix\n login\t flow\u{1f} now\r"),
+            "Fix login flow now"
+        );
+        assert_eq!(task_summary("\n\t"), "");
+        let text = task_summary(&"界".repeat(300));
+        assert_eq!(text.chars().count(), 240);
+        assert!(text.ends_with('…'));
+        assert_eq!(task_summary("#{pane_id} $HOME"), "#{pane_id} $HOME");
     }
 
     #[test]
