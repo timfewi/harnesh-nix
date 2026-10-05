@@ -487,14 +487,25 @@ fn switcher_creates_and_opens_new_agent_without_output_mirroring() {
     cockpit.wait_for("dash", "plain-1");
     assert!(cockpit.panes().iter().any(|p| p["name"] == "plain-1"));
     cockpit.tmux(&["send-keys", "-t", &dash, "Enter"]);
-    let selected = cockpit.tmux(&[
-        "list-windows",
-        "-t",
-        "it",
-        "-F",
-        "#{window_name} #{window_active}",
-    ]);
-    assert!(selected.contains("agents 1"), "{selected}");
+    // send-keys only queues input; wait for the dashboard to handle Enter.
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        let selected = cockpit.tmux(&[
+            "list-windows",
+            "-t",
+            "it",
+            "-F",
+            "#{window_name} #{window_active}",
+        ]);
+        if selected.contains("agents 1") {
+            break;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "agent window never selected:\n{selected}"
+        );
+        std::thread::sleep(Duration::from_millis(100));
+    }
     cockpit.ok(&["home"]);
     assert!(
         cockpit
